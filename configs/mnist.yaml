@@ -14,13 +14,13 @@ vae:
 
 geodesy:
   metric: riemannian   # or euclidean
-  n_landmarks: 10000
+  n_landmarks: 5000
   knn_k: 15
   kmedoids_seed: 42
   batch_edges: 64
 
 codebook:
-  n_landmarks: 10000
+  n_landmarks: 5000
   knn_k: 15
   metric: riemannian        # riemannian | euclidean
   symmetrize: true
@@ -50,3 +50,4 @@ quantize:
 generate:
   n_samples: 16
   seed: 42
+
