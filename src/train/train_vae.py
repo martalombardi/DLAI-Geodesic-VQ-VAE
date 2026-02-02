@@ -180,8 +180,7 @@ def train_vae(cfg: dict, run_dir: Path):
         bces.append(epoch_bce)
         kls.append(epoch_kl)
 
-        if epoch == 1 or epoch % 5 == 0 or epoch == epochs:
-            print(f"[VAE] Epoch {epoch:03d} | loss={epoch_loss:.4f} | bce={epoch_bce:.4f} | kl={epoch_kl:.4f}")
+        print(f"[VAE] Epoch {epoch:03d} | loss={epoch_loss:.4f} | bce={epoch_bce:.4f} | kl={epoch_kl:.4f}")
 
     elapsed = time.time() - t0
     print(f"[VAE] Training done in {elapsed:.1f}s")

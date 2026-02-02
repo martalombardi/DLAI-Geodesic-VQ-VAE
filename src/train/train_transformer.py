@@ -177,8 +177,7 @@ def train_transformer(
         loss_history.append(avg_loss)
         ppl_history.append(ppl)
 
-        if epoch == 1 or epoch % 5 == 0 or epoch == epochs:
-            print(f"[TR] Epoch {epoch:03d} | loss={avg_loss:.4f} | ppl={ppl:.2f}")
+        print(f"[TR] Epoch {epoch:03d} | loss={avg_loss:.4f} | ppl={ppl:.2f}")
 
     elapsed = time.time() - t0
     print(f"[TR] Training done in {elapsed:.1f}s")
