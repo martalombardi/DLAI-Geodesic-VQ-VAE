@@ -26,7 +26,7 @@ codebook:
   symmetrize: true
   batch_edges: 64
   n_codes: 128
-  kmedoids_seed: 42
+  kmedoids_seed: 123
   inf_fill_factor: 2.0
   eps_weight: 1.0e-5
 
