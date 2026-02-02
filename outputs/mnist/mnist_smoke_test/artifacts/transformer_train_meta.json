@@ -1,0 +1,22 @@
+{
+  "dataset": "mnist",
+  "seed": 123,
+  "device": "cuda",
+  "epochs": 30,
+  "n_codes": 128,
+  "start_token": 128,
+  "grid_res": 7,
+  "d_model": 256,
+  "n_heads": 8,
+  "n_layers": 4,
+  "dropout": 0.1,
+  "lr": 0.0001,
+  "weight_decay": 0.01,
+  "grad_clip": 1.0,
+  "final_loss": 1.787631498979353,
+  "final_ppl": 5.975283145904541,
+  "loss_curve": "outputs/mnist/mnist_smoke_test/figures/transformer_ppl_curve.png",
+  "checkpoint": "outputs/mnist/mnist_smoke_test/checkpoints/transformer_last.pt",
+  "codes_dataset": "outputs/mnist/mnist_smoke_test/artifacts/codes_dataset.pt",
+  "elapsed_sec": 623.3082687854767
+}
