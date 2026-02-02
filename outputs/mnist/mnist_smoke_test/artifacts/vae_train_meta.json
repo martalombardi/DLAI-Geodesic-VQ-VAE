@@ -1,0 +1,15 @@
+{
+  "dataset": "mnist",
+  "seed": 123,
+  "device": "cuda",
+  "epochs": 30,
+  "loss_reduction": "sum",
+  "beta_kl": 1.0,
+  "final_loss": 121.82430113932291,
+  "final_bce": 77.69306363932292,
+  "final_kl": 44.131237361653646,
+  "checkpoint": "outputs/mnist/mnist_smoke_test/checkpoints/vae_last.pt",
+  "recon_grid": "outputs/mnist/mnist_smoke_test/figures/vae_recon_grid.png",
+  "loss_curve": "outputs/mnist/mnist_smoke_test/figures/vae_loss_curve.png",
+  "elapsed_sec": 248.75773739814758
+}

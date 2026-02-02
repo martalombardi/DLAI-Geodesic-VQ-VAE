@@ -1,0 +1,7 @@
+{
+  "metric": "riemannian",
+  "n_landmarks": 5000,
+  "knn_k": 15,
+  "n_codes": 128,
+  "seed": 123
+}
