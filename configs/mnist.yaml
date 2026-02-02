@@ -1,8 +1,13 @@
-dataset: mnist
-model:
-  grid_res: 7
-  n_codes: 128
-  start_token: 128
-generate:
-  n_samples: 16
-  seed: 123
+dataset:
+  name: mnist
+  channels: 1
+  image_size: 28
+
+vae:
+  latent_dim: 64
+  base_channels: 32
+  lr: 1.0e-3
+  batch_size: 128
+  epochs: 30
+  beta_kl: 1.0
+  loss_reduction: sum

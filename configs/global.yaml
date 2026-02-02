@@ -1,3 +1,6 @@
-outputs_root: outputs
 seed: 123
-device: cpu
+device: cuda
+deterministic_cpu: true
+num_workers: 2
+pin_memory: true
+outputs_root: outputs
