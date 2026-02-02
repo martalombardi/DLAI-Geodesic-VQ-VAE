@@ -1,0 +1,3 @@
+outputs_root: outputs
+seed: 123
+device: cpu

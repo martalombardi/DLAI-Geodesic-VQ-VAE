@@ -1,0 +1,8 @@
+dataset: mnist
+model:
+  grid_res: 7
+  n_codes: 128
+  start_token: 128
+generate:
+  n_samples: 16
+  seed: 123
