@@ -9,14 +9,14 @@
   "d_model": 256,
   "n_heads": 8,
   "n_layers": 4,
-  "dropout": 0.1,
-  "lr": 0.0001,
-  "weight_decay": 0.01,
+  "dropout": 0.0,
+  "lr": 0.0005,
+  "weight_decay": 0.0,
   "grad_clip": 1.0,
-  "final_loss": 1.787631498979353,
-  "final_ppl": 5.975283145904541,
+  "final_loss": 1.4166042575958187,
+  "final_ppl": 4.123095989227295,
   "loss_curve": "outputs/mnist/mnist_smoke_test/figures/transformer_ppl_curve.png",
   "checkpoint": "outputs/mnist/mnist_smoke_test/checkpoints/transformer_last.pt",
   "codes_dataset": "outputs/mnist/mnist_smoke_test/artifacts/codes_dataset.pt",
-  "elapsed_sec": 623.3082687854767
+  "elapsed_sec": 640.5766198635101
 }

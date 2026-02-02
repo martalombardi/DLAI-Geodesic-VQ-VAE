@@ -49,4 +49,4 @@ quantize:
 
 generate:
   n_samples: 16
-  seed: 321
+  seed: 42

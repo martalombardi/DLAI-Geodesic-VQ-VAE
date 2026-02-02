@@ -11,5 +11,5 @@
   "checkpoint": "outputs/mnist/mnist_smoke_test/checkpoints/vae_last.pt",
   "recon_grid": "outputs/mnist/mnist_smoke_test/figures/vae_recon_grid.png",
   "loss_curve": "outputs/mnist/mnist_smoke_test/figures/vae_loss_curve.png",
-  "elapsed_sec": 248.75773739814758
+  "elapsed_sec": 259.47118163108826
 }
