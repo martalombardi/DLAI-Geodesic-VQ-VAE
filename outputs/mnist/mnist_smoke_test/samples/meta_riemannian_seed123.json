@@ -1,8 +1,0 @@
-{
-  "n_samples": 16,
-  "start_token": 128,
-  "grid_res": 7,
-  "seed": 123,
-  "png": "outputs/mnist/mnist_smoke_test/samples/samples_riemannian_seed123.png",
-  "tokens_pt": "outputs/mnist/mnist_smoke_test/samples/tokens_riemannian_seed123.pt"
-}
