@@ -4,24 +4,24 @@ dataset:
   image_size: 28
 
 vae:
-  latent_dim: 64
+  latent_dim: 62
   base_channels: 48        # più capacità (32→48)
   lr: 1.0e-3
   batch_size: 128
   epochs: 40               # un filo di training in più
-  beta_kl: 1.0
+  beta_kl: 0.5
   loss_reduction: sum
 
 geodesy:
   metric: riemannian
-  n_landmarks: 8000        # più landmarks aiuta la geodesia su FashionMNIST
-  knn_k: 15                # 10→15
+  n_landmarks: 5000        # più landmarks aiuta la geodesia su FashionMNIST
+  knn_k: 10                # 10→15
   kmedoids_seed: 42
   batch_edges: 64
 
 codebook:
-  n_landmarks: 8000
-  knn_k: 15
+  n_landmarks: 5000
+  knn_k: 10
   metric: riemannian
   symmetrize: true
   batch_edges: 64
@@ -41,7 +41,7 @@ transformer:
   batch_size: 64
   epochs: 40              # un filo di training in più
   lr: 5.0e-4
-  weight_decay: 0.00
+  weight_decay: 0.01
   grad_clip: 1.0
 
 quantize:
@@ -49,4 +49,5 @@ quantize:
 
 generate:
   n_samples: 16
+
   seed: 123
