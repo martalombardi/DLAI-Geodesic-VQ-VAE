@@ -181,3 +181,228 @@ def generate_and_save(
         json.dump(meta, f, indent=2)
 
     return imgs, tokens
+
+def generate_images_multinomial_refined(
+    run_dir: Path,
+    transformer,
+    vae_decoder,
+    codebook,
+    n_samples: int,
+    start_token: int,
+    grid_res: int,
+    device,
+    seed: int,
+    metric_tag: str,                 # <-- NEW: "riemann" / "euclidean"
+    tag: str = "refined",
+    temperature: float = 0.8,
+    top_p: float = 0.9,
+    codebook_scale: float = 1.15
+):
+    """
+    Refined version of `generate_images_multinomial`.
+
+    This function improves the basic multinomial sampling strategy by:
+    - Applying Temperature scaling to control the sharpness of the token distribution.
+    - Using Top-p (Nucleus) sampling to remove low-probability tokens and
+      stabilize generation.
+    - Optionally scaling the codebook vectors before decoding to increase
+      latent contrast (heuristic inspired by Method A–style refinements).
+    """
+    run_dir = Path(run_dir)
+    samples_dir = run_dir / "samples"
+    samples_dir.mkdir(parents=True, exist_ok=True)
+
+    # ---------------------------
+    # 1) Generation (token sampling)
+    # ---------------------------
+    transformer.eval()
+    vae_decoder.eval()
+
+    if isinstance(codebook, torch.Tensor):
+        cb = codebook.to(device).float() * codebook_scale
+    else:
+        cb = torch.from_numpy(codebook).to(device).float() * codebook_scale
+
+    seq_len = grid_res * grid_res
+
+    g = torch.Generator(device=device)
+    g.manual_seed(seed)
+
+    tokens = torch.full((n_samples, 1), start_token, dtype=torch.long, device=device)
+
+    for _ in range(seq_len):
+        logits = transformer(tokens)[:, -1, :]
+        logits = logits / max(temperature, 1e-6)
+
+        sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+        cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
+
+        sorted_indices_to_remove = cumulative_probs > top_p
+        sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+        sorted_indices_to_remove[..., 0] = 0
+
+        indices_to_remove = sorted_indices_to_remove.scatter(
+            1, sorted_indices, sorted_indices_to_remove
+        )
+        logits = logits.masked_fill(indices_to_remove, -float("inf"))
+
+        probs = F.softmax(logits, dim=-1)
+        next_token = torch.multinomial(probs, num_samples=1, generator=g)
+        tokens = torch.cat([tokens, next_token], dim=1)
+
+    tokens_L = tokens[:, 1:]
+
+    z_grid = (
+        cb[tokens_L]
+        .view(n_samples, grid_res, grid_res, -1)
+        .permute(0, 3, 1, 2)
+        .contiguous()
+    )
+
+    imgs = vae_decoder(z_grid)
+
+    imgs_cpu = imgs.detach().cpu()
+    tokens_cpu = tokens_L.detach().cpu()
+
+    # ---------------------------
+    # 3) Save artifacts (REFINED saving)
+    # ---------------------------
+    # 3.1 Save PNG grid with parameter-encoded filename
+    png_path = save_generated_grid_refined(
+        imgs=imgs_cpu,
+        out_dir=samples_dir,
+        metric_tag=metric_tag,
+        seed=seed,
+        n_samples=n_samples,
+        temperature=temperature,
+        top_p=top_p,
+        codebook_scale=codebook_scale,
+        tag=tag,
+    )
+
+    # 3.2 Save tokens with aligned naming
+    tok_path = samples_dir / png_path.name.replace("samples_", "tokens_").replace(".png", ".pt")
+    torch.save({"tokens": tokens_cpu}, tok_path)
+
+    # 3.3 Save metadata JSON with aligned naming
+    meta_path = samples_dir / png_path.name.replace("samples_", "meta_").replace(".png", ".json")
+    meta = {
+        "metric_tag": str(metric_tag),
+        "tag": str(tag),
+        "n_samples": int(n_samples),
+        "start_token": int(start_token),
+        "grid_res": int(grid_res),
+        "seed": int(seed),
+        "temperature": float(temperature),
+        "top_p": float(top_p),
+        "codebook_scale": float(codebook_scale),
+        "png": str(png_path),
+        "tokens_pt": str(tok_path),
+    }
+    with open(meta_path, "w") as f:
+        json.dump(meta, f, indent=2)
+
+    return imgs_cpu, tokens_cpu
+
+    # ---------------------------
+    # 3) Save artifacts (same convention as the base pipeline)
+    # ---------------------------
+    # 3.1 Save a PNG grid
+    save_generated_grid(imgs_cpu, png_path, nrow=int(np.sqrt(n_samples)))
+
+    # 3.2 Save tokens
+    torch.save({"tokens": tokens_cpu}, tok_path)
+
+    # 3.3 Save metadata JSON (for reproducibility)
+    meta = {
+        "n_samples": int(n_samples),
+        "start_token": int(start_token),
+        "grid_res": int(grid_res),
+        "seed": int(seed),
+        "temperature": float(temperature),
+        "top_p": float(top_p),
+        "codebook_scale": float(codebook_scale),
+        "png": str(png_path),
+        "tokens_pt": str(tok_path),
+    }
+    with open(meta_path, "w") as f:
+        json.dump(meta, f, indent=2)
+
+    return imgs_cpu, tokens_cpu
+
+def save_generated_grid_refined(
+    imgs: torch.Tensor,
+    out_dir: Path,
+    *,
+    metric_tag: str,
+    seed: int,
+    n_samples: int,
+    temperature: float,
+    top_p: float,
+    codebook_scale: float,
+    tag: str = "refined",
+    cmap: str = "gray",
+    dpi: int = 200,
+):
+    """
+    Save a grid image from a batch tensor with filenames that encode
+    the sampling configuration (metric + hyperparameters).
+
+    This is a drop-in alternative to `save_generated_grid`, but it handles
+    naming internally and returns the generated output path.
+
+    Args:
+        imgs: Tensor of shape (N, C, H, W) on CPU (recommended).
+        out_dir: Directory where the PNG will be saved.
+        metric_tag: Identifier such as "riemann" or "euclidean".
+        seed: Sampling seed.
+        n_samples: Number of samples in the grid (used for layout).
+        temperature: Sampling temperature.
+        top_p: Nucleus sampling threshold.
+        codebook_scale: Multiplicative scaling applied to codebook vectors.
+        tag: Optional string label ("refined" by default).
+        cmap: Colormap for grayscale images.
+        dpi: DPI for saved PNG.
+
+    Returns:
+        out_path: Path of the saved PNG file.
+    """
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Format floats to be filesystem-friendly (e.g., 0.90 -> "0p90")
+    def _fmt(x: float, nd: int = 2) -> str:
+        return f"{float(x):.{nd}f}".replace(".", "p")
+
+    tp_str = _fmt(top_p, nd=2)
+    temp_str = _fmt(temperature, nd=2)
+    cs_str = _fmt(codebook_scale, nd=2)
+
+    tag = tag or "refined"
+    metric_tag = metric_tag or "metric"
+
+    fname = (
+        f"samples_{metric_tag}_{tag}_seed{int(seed)}"
+        f"_tp{tp_str}_temp{temp_str}_cs{cs_str}.png"
+    )
+    out_path = out_dir / fname
+
+    # Grid layout: square-ish
+    N, C, H, W = imgs.shape
+    nrow = int(np.sqrt(n_samples))
+    ncol = int(np.ceil(N / nrow))
+
+    fig = plt.figure(figsize=(ncol * 1.5, nrow * 1.5))
+    for i in range(N):
+        ax = plt.subplot(nrow, ncol, i + 1)
+        if C == 1:
+            ax.imshow(imgs[i, 0], cmap=cmap)
+        else:
+            ax.imshow(imgs[i].permute(1, 2, 0))
+        ax.axis("off")
+
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=dpi)
+    plt.close(fig)
+
+    return out_path
