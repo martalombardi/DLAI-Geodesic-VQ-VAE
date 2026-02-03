@@ -145,7 +145,9 @@ def _compute_token_stats(tokens_2d: torch.Tensor, vocab_size: int):
         p_nz = p[p > 0]
         h_nats = float(-(p_nz * np.log(p_nz)).sum())
         per_pos_ppl[j] = float(np.exp(h_nats))
-
+    
+    counts = np.bincount(flat, minlength=vocab_size).astype(np.float64)
+  
     return {
         "N_sequences": int(N),
         "seq_len": int(L),
@@ -158,6 +160,7 @@ def _compute_token_stats(tokens_2d: torch.Tensor, vocab_size: int):
         "entropy_bits": entropy_bits,
         "perplexity": ppl_emp,
         "effective_vocab_ratio": eff_vocab_ratio,
+        "token_counts": counts.tolist(),
         "per_position_used_tokens": per_pos_used.tolist(),
         "per_position_perplexity": per_pos_ppl.tolist(),
         "per_position_summary": {
@@ -196,19 +199,54 @@ def _plot_global_token_usage(stats: dict, out_path: Path):
 
 def _plot_token_utilization(stats: dict, out_path: Path):
     """
-    Plot token utilization (%) as a single-bar chart with annotation.
+    Plot token utilization as a histogram of token usage frequencies.
+
+    Unlike a single scalar (% of vocabulary used), this plot shows the
+    distribution of how frequently tokens are sampled/used, highlighting:
+      - unused tokens (frequency = 0)
+      - rare tokens (very small frequency)
+      - dominant tokens (large frequency)
+
+    The histogram is computed over token *relative frequencies*:
+        freq_i = count_i / sum(counts)
     """
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    util = float(stats["token_utilization"])
+    counts = np.asarray(stats["token_counts"], dtype=np.float64)
+    total = counts.sum()
 
-    fig = plt.figure()
-    plt.bar(["token_utilization"], [util])
-    plt.ylim(0, 100)
-    plt.ylabel("% of vocabulary used")
-    plt.title("Token utilization")
-    plt.text(0, util + 1.0, f"{util:.2f}%", ha="center", va="bottom")
+    # Relative frequency of each token (0..1)
+    freqs = counts / max(total, 1.0)
+
+    # We use log-spaced bins to make rare vs dominant tokens visible.
+    # Include 0 explicitly as its own bin edge.
+    nonzero = freqs[freqs > 0]
+    if nonzero.size == 0:
+        # Degenerate case: nothing used (should not happen, but be safe)
+        fig = plt.figure()
+        plt.text(0.5, 0.5, "No tokens were used.", ha="center", va="center")
+        plt.axis("off")
+        plt.tight_layout()
+        plt.savefig(out_path, dpi=200)
+        plt.close(fig)
+        return
+
+    # Log bins for non-zero freqs
+    fmin = nonzero.min()
+    fmax = nonzero.max()
+    log_bins = np.logspace(np.log10(fmin), np.log10(fmax), num=40)
+
+    # Combine a zero bin with log bins
+    bins = np.concatenate(([0.0], log_bins))
+
+    fig = plt.figure(figsize=(8, 4))
+    plt.hist(freqs, bins=bins)
+
+    plt.xscale("symlog", linthresh=1e-6)  # handles 0 + log behavior
+    plt.xlabel("Token relative frequency")
+    plt.ylabel("Number of tokens")
+    plt.title("Token utilization histogram (frequency distribution)")
     plt.tight_layout()
     plt.savefig(out_path, dpi=200)
     plt.close(fig)
@@ -481,4 +519,5 @@ def evaluate_transformer_perplexity(
         plt.close(fig)
 
     return out
+
 
