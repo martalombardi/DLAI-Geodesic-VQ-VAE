@@ -4,8 +4,8 @@
   "n_codes": 128,
   "start_token": 128,
   "batch_size": 256,
-  "avg_nll": 1.4695934662501018,
-  "perplexity": 4.347467389541329,
-  "batch_loss_mean": 1.4695515348556194,
-  "batch_loss_std": 0.023082568896396958
+  "avg_nll": 1.4577285744984945,
+  "perplexity": 4.2961899616859,
+  "batch_loss_mean": 1.4577326353560103,
+  "batch_loss_std": 0.023559896360619694
 }

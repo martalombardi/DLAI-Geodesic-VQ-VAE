@@ -6,7 +6,7 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn_extra.cluster import KMedoids
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import dijkstra
-
+from scipy.sparse.csgraph import connected_components
 
 # ============================================================
 # 1) Landmark collection (with positional indexing)
@@ -89,6 +89,57 @@ def symmetrize_adjacency(adj):
 # 3) Edge weight computation
 # ============================================================
 
+def compute_edge_weights_riemannian_jvp(
+    vae_model, landmarks, positions, adjacency, device,
+    latent_dim, grid_res, batch_edges=64, eps_weight=1e-5,
+):
+    vae_model.eval()
+    sources, targets = adjacency.nonzero()
+    points = torch.from_numpy(landmarks).float().to(device)
+    pos_idx = torch.from_numpy(positions).long().to(device)
+
+    # Media globale: garantisce stabilità e previene artefatti "fuori distribuzione"
+    mean_latent = points.mean(dim=0) 
+
+    weights = np.zeros(len(sources), dtype=np.float32)
+
+    def decode_from_single_patch(z_patch, pos_flat, bg):
+        B = z_patch.size(0)
+        # Background realistico basato sulla media dei landmark
+        grid = bg.view(1, latent_dim, 1, 1).expand(B, -1, grid_res, grid_res).clone()
+        ii, jj = pos_flat // grid_res, pos_flat % grid_res
+        grid[torch.arange(B), :, ii, jj] = z_patch
+        return vae_model.decoder(grid).reshape(B, -1)
+
+    for i in range(0, len(sources), batch_edges):
+        end = min(i + batch_edges, len(sources))
+        s, t = sources[i:end], targets[i:end]
+
+        p1, p2 = points[s], points[t]
+        mid, tan = 0.5 * (p1 + p2), (p2 - p1)
+        
+        # Distanza euclidea latente per la normalizzazione
+        dist_eucl = torch.linalg.norm(tan, dim=1)
+
+        # Scelta deterministica della posizione per garantire d(A,B) == d(B,A)
+        pos_batch = torch.from_numpy(np.minimum(positions[s], positions[t])).to(device)
+
+        # Calcolo JVP
+        _, jvp_out = jvp(lambda z: decode_from_single_patch(z, pos_batch, mean_latent), (mid,), (tan,))
+        
+        # NORMA JVP (Pixel Space)
+        norm_pixel = torch.linalg.norm(jvp_out, dim=1)
+        
+        # NORMALIZZAZIONE GEOMETRICA: Isola la variazione morfologica
+        # Questo riduce la "sfocatura" tipica delle zone con distanze latenti elevate
+        w = (norm_pixel / (dist_eucl + 1e-8)).detach().cpu().numpy()
+        
+        weights[i:end] = w
+
+    weights = np.maximum(weights, eps_weight)
+    return csr_matrix((weights, (sources, targets)), shape=adjacency.shape)
+
+'''
 def compute_edge_weights_euclidean(landmarks: np.ndarray, adjacency, eps_weight: float = 1e-5):
     """
     Edge weights = Euclidean distance in latent space.
@@ -100,72 +151,46 @@ def compute_edge_weights_euclidean(landmarks: np.ndarray, adjacency, eps_weight:
     w = np.maximum(w, eps_weight)
     return csr_matrix((w, (sources, targets)), shape=adjacency.shape)
 
-
 def compute_edge_weights_riemannian_jvp(
-    vae_model,
-    landmarks: np.ndarray,
-    positions: np.ndarray,
-    adjacency,
-    device,
-    latent_dim: int,
-    grid_res: int,
-    batch_edges: int = 64,
-    eps_weight: float = 1e-5,
+    vae_model, landmarks, positions, adjacency, device,
+    latent_dim, grid_res, batch_edges=64, eps_weight=1e-5,
 ):
-    """
-    Edge weights approximated by || J(mid) * (p2 - p1) || via JVP,
-    where J is the decoder Jacobian wrt the latent patch inserted at its original grid cell.
-
-    This implements your "positional patch":
-    each landmark keeps its grid cell index, and the decoder input places z in that cell.
-    """
     vae_model.eval()
-
     sources, targets = adjacency.nonzero()
     points = torch.from_numpy(landmarks).float().to(device)
     pos_idx = torch.from_numpy(positions).long().to(device)
 
+    # MODIFICA 1: Calcola la media per un background realistico
+    mean_latent = points.mean(dim=0) 
+
     weights = np.zeros(len(sources), dtype=np.float32)
 
-    def decode_from_single_patch(z_patch: torch.Tensor, pos_flat: torch.Tensor):
-        """
-        z_patch: (B, latent_dim)
-        pos_flat: (B,) integer indices in [0, grid_res*grid_res-1]
-
-        We build a latent grid of zeros and place each z_patch into its corresponding cell.
-        Output is flattened image vector per sample to compute norms in output space.
-        """
+    # MODIFICA 2: La funzione di decode ora accetta mean_latent
+    def decode_from_single_patch(z_patch, pos_flat, bg):
         B = z_patch.size(0)
-        grid = torch.zeros(B, latent_dim, grid_res, grid_res, device=device)
-
-        ii = pos_flat // grid_res
-        jj = pos_flat % grid_res
-
-        grid[torch.arange(B, device=device), :, ii, jj] = z_patch
-        out = vae_model.decoder(grid)            # (B, C, H, W)
-        return out.reshape(B, -1)                # (B, P)
+        # Inizializza con la media invece che con zeri
+        grid = bg.view(1, latent_dim, 1, 1).expand(B, -1, grid_res, grid_res).clone()
+        ii, jj = pos_flat // grid_res, pos_flat % grid_res
+        grid[torch.arange(B), :, ii, jj] = z_patch
+        return vae_model.decoder(grid).reshape(B, -1)
 
     for i in range(0, len(sources), batch_edges):
         end = min(i + batch_edges, len(sources))
-        s = sources[i:end]
-        t = targets[i:end]
+        s, t = sources[i:end], targets[i:end]
 
-        p1 = points[s]
-        p2 = points[t]
-        mid = 0.5 * (p1 + p2)
-        tan = (p2 - p1)
+        p1, p2 = points[s], points[t]
+        mid, tan = 0.5 * (p1 + p2), (p2 - p1)
 
-        # Use the source node position (consistent with your current choice)
-        pos_batch = pos_idx[s]
+        # MODIFICA 3: Scelta deterministica della posizione per simmetria
+        pos_batch = torch.from_numpy(np.minimum(positions[s], positions[t])).to(device)
 
-        # JVP: derivative wrt z only; positions are constants
-        _, jvp_out = jvp(lambda z: decode_from_single_patch(z, pos_batch), (mid,), (tan,))
-        w = torch.linalg.norm(jvp_out, dim=1).detach().cpu().numpy()
-        weights[i:end] = w
+        # JVP con background e posizione coerente
+        _, jvp_out = jvp(lambda z: decode_from_single_patch(z, pos_batch, mean_latent), (mid,), (tan,))
+        weights[i:end] = torch.linalg.norm(jvp_out, dim=1).detach().cpu().numpy()
 
     weights = np.maximum(weights, eps_weight)
     return csr_matrix((weights, (sources, targets)), shape=adjacency.shape)
-
+'''
 
 # ============================================================
 # 4) Shortest path distances + KMedoids codebook
@@ -252,7 +277,15 @@ def build_codebook_and_bridges(
     if symmetrize:
         adj = symmetrize_adjacency(adj)
 
+    n_components, labels = connected_components(adj, directed=False)
+    print(f"Il grafo ha {n_components} componenti connesse.")
+
+    if n_components > 1:
+      print("Consiglio: Aumenta knn_k per connettere il grafo ed evitare distanze infinite.")
+    else:
+      print("Il grafo è perfettamente connesso. Ottimo per Dijkstra!")
     metric = metric.lower()
+    
     if metric == "euclidean":
         weighted_adj = compute_edge_weights_euclidean(landmarks, adj, eps_weight=eps_weight)
     elif metric == "riemannian":
