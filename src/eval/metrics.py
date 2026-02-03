@@ -11,6 +11,27 @@ All functions can also save:
 - Figures to run_dir/figures/
 """
 
+"""
+Metrics for discrete-token modeling.
+
+This module provides:
+1) Empirical token statistics for a tokenized dataset (codes_dataset).
+2) Empirical token statistics for generated token sequences.
+3) Transformer evaluation perplexity (cross-entropy) on a token dataset.
+
+Enhancements in this version:
+- Adds global plots for:
+  (a) used vs. unused tokens
+  (b) token utilization (% of vocabulary used)
+- Uses consistent, explicit file naming based on:
+  metric_tag + sampler_tag + seed (+ refined hyperparams) + user tag
+- Distinguishes BASE multinomial vs REFINED multinomial in saved artifacts/figures.
+
+Outputs:
+- JSON summaries to run_dir/artifacts/
+- Figures to run_dir/figures/
+"""
+
 from pathlib import Path
 import json
 import numpy as np
@@ -18,6 +39,56 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 import matplotlib.pyplot as plt
+
+
+# -----------------------------
+# Helper: stable tag formatting
+# -----------------------------
+
+def _fmt_float(x: float, nd: int = 2) -> str:
+    """Filesystem-friendly float formatting: 0.90 -> '0p90'."""
+    return f"{float(x):.{nd}f}".replace(".", "p")
+
+
+def _build_run_id(
+    *,
+    metric_tag: str,
+    sampler_tag: str,
+    seed: int,
+    user_tag: str,
+    temperature: float = None,
+    top_p: float = None,
+    codebook_scale: float = None,
+) -> str:
+    """
+    Build a unique identifier string used in filenames.
+
+    Examples:
+      dataset_riemann_base_seed42
+      generation_euclidean_refined_seed123_tp0p90_temp0p80_cs1p15
+    """
+    metric_tag = metric_tag or "metric"
+    sampler_tag = sampler_tag or "base"
+    user_tag = user_tag or "run"
+
+    rid = f"{user_tag}_{metric_tag}_{sampler_tag}_seed{int(seed)}"
+
+    # Only append refined hyperparameters if they are provided (or if sampler_tag implies refined)
+    if temperature is not None:
+        rid += f"_temp{_fmt_float(temperature, 2)}"
+    if top_p is not None:
+        rid += f"_tp{_fmt_float(top_p, 2)}"
+    if codebook_scale is not None:
+        rid += f"_cs{_fmt_float(codebook_scale, 2)}"
+
+    return rid
+
+
+def _save_json(path: Path, obj: dict):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(obj, f, indent=2)
 
 
 # -----------------------------
@@ -31,7 +102,7 @@ def _compute_token_stats(tokens_2d: torch.Tensor, vocab_size: int):
     Returns a dict with:
       - N_sequences, seq_len, vocab_size
       - used_tokens, unused_tokens, pct_unused
-      - token_utilization (percent of vocab used)
+      - token_utilization (% of vocab used)
       - entropy_bits, entropy_nats
       - perplexity (empirical, from entropy)
       - effective_vocab_ratio = empirical_perplexity / vocab_size
@@ -54,7 +125,7 @@ def _compute_token_stats(tokens_2d: torch.Tensor, vocab_size: int):
     unused = int(vocab_size - used)
     pct_unused = float(unused / vocab_size)
 
-    # Entropy
+    # Entropy (ignore zeros)
     p_nonzero = probs[probs > 0]
     entropy_nats = float(-(p_nonzero * np.log(p_nonzero)).sum())
     entropy_bits = float(entropy_nats / np.log(2.0))
@@ -100,11 +171,78 @@ def _compute_token_stats(tokens_2d: torch.Tensor, vocab_size: int):
     }
 
 
-def _save_json(path: Path, obj: dict):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as f:
-        json.dump(obj, f, indent=2)
+# --------------------------------------
+# Plot helpers (NEW in this version)
+# --------------------------------------
+
+def _plot_global_token_usage(stats: dict, out_path: Path):
+    """
+    Plot used vs unused tokens as a simple bar chart.
+    """
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    used = stats["used_tokens"]
+    unused = stats["unused_tokens"]
+
+    fig = plt.figure()
+    plt.bar(["used", "unused"], [used, unused])
+    plt.ylabel("# tokens")
+    plt.title("Vocabulary usage (global)")
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200)
+    plt.close(fig)
+
+
+def _plot_token_utilization(stats: dict, out_path: Path):
+    """
+    Plot token utilization (%) as a single-bar chart with annotation.
+    """
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    util = float(stats["token_utilization"])
+
+    fig = plt.figure()
+    plt.bar(["token_utilization"], [util])
+    plt.ylim(0, 100)
+    plt.ylabel("% of vocabulary used")
+    plt.title("Token utilization")
+    plt.text(0, util + 1.0, f"{util:.2f}%", ha="center", va="bottom")
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200)
+    plt.close(fig)
+
+
+def _plot_per_position_curves(stats: dict, out_dir: Path, run_id: str):
+    """
+    Plot per-position perplexity and per-position used tokens.
+    """
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    L = stats["seq_len"]
+    xs = np.arange(L)
+
+    # Per-position empirical perplexity
+    fig = plt.figure()
+    plt.plot(xs, stats["per_position_perplexity"])
+    plt.xlabel("position")
+    plt.ylabel("empirical perplexity")
+    plt.title("Per-position empirical perplexity")
+    plt.tight_layout()
+    plt.savefig(out_dir / f"token_stats_{run_id}_per_position_ppl.png", dpi=200)
+    plt.close(fig)
+
+    # Per-position unique tokens
+    fig = plt.figure()
+    plt.plot(xs, stats["per_position_used_tokens"])
+    plt.xlabel("position")
+    plt.ylabel("unique tokens used")
+    plt.title("Per-position unique token count")
+    plt.tight_layout()
+    plt.savefig(out_dir / f"token_stats_{run_id}_per_position_used.png", dpi=200)
+    plt.close(fig)
 
 
 # --------------------------------------
@@ -115,44 +253,75 @@ def evaluate_tokenized_dataset(
     run_dir: Path,
     codes_dataset: torch.Tensor,
     vocab_size: int,
-    tag: str = "dataset",
+    *,
+    metric_tag: str,
+    sampler_tag: str,
+    seed: int,
+    user_tag: str = "dataset",
+    temperature: float = None,
+    top_p: float = None,
+    codebook_scale: float = None,
     save: bool = True,
 ):
     """
-    Compute empirical token utilization + entropy stats on the tokenized dataset.
+    Compute empirical token utilization + entropy stats on a tokenized dataset.
 
-    Saves:
-      - artifacts/token_stats_<tag>.json
-      - figures/token_stats_<tag>_per_position.png
+    Naming convention distinguishes:
+      - metric_tag: e.g., "riemann" / "euclidean"
+      - sampler_tag: e.g., "base" / "refined"
+      - seed: generation seed (for dataset you may still pass a consistent seed)
+      - refined params: only when provided
+
+    Saves (if save=True):
+      - artifacts/token_stats_<run_id>.json
+      - figures/token_stats_<run_id>_global_usage.png
+      - figures/token_stats_<run_id>_token_utilization.png
+      - figures/token_stats_<run_id>_per_position_ppl.png
+      - figures/token_stats_<run_id>_per_position_used.png
     """
+    run_id = _build_run_id(
+        metric_tag=metric_tag,
+        sampler_tag=sampler_tag,
+        seed=seed,
+        user_tag=user_tag,
+        temperature=temperature,
+        top_p=top_p,
+        codebook_scale=codebook_scale,
+    )
+
     stats = _compute_token_stats(codes_dataset, vocab_size=vocab_size)
+
+    # Include identifiers in the JSON for easier downstream parsing
+    stats = dict(stats)
+    stats.update({
+        "run_id": run_id,
+        "metric_tag": str(metric_tag),
+        "sampler_tag": str(sampler_tag),
+        "seed": int(seed),
+        "user_tag": str(user_tag),
+        "temperature": None if temperature is None else float(temperature),
+        "top_p": None if top_p is None else float(top_p),
+        "codebook_scale": None if codebook_scale is None else float(codebook_scale),
+    })
 
     if save:
         run_dir = Path(run_dir)
-        _save_json(run_dir / "artifacts" / f"token_stats_{tag}.json", stats)
 
-        # Plot per-position perplexity & used tokens
-        L = stats["seq_len"]
-        xs = np.arange(L)
+        # JSON summary
+        _save_json(run_dir / "artifacts" / f"token_stats_{run_id}.json", stats)
 
-        fig = plt.figure()
-        plt.plot(xs, stats["per_position_perplexity"])
-        plt.xlabel("position")
-        plt.ylabel("empirical perplexity")
-        plt.tight_layout()
-        out = run_dir / "figures" / f"token_stats_{tag}_per_position_ppl.png"
-        out.parent.mkdir(parents=True, exist_ok=True)
-        plt.savefig(out, dpi=200)
-        plt.close(fig)
+        # Global plots (NEW)
+        _plot_global_token_usage(
+            stats, run_dir / "figures" / f"token_stats_{run_id}_global_usage.png"
+        )
+        _plot_token_utilization(
+            stats, run_dir / "figures" / f"token_stats_{run_id}_token_utilization.png"
+        )
 
-        fig = plt.figure()
-        plt.plot(xs, stats["per_position_used_tokens"])
-        plt.xlabel("position")
-        plt.ylabel("unique tokens used")
-        plt.tight_layout()
-        out = run_dir / "figures" / f"token_stats_{tag}_per_position_used.png"
-        plt.savefig(out, dpi=200)
-        plt.close(fig)
+        # Per-position plots (existing, but now properly named)
+        _plot_per_position_curves(
+            stats, run_dir / "figures", run_id
+        )
 
     return stats
 
@@ -165,19 +334,33 @@ def evaluate_generated_tokens(
     run_dir: Path,
     generated_tokens: torch.Tensor,
     vocab_size: int,
-    tag: str = "generation",
+    *,
+    metric_tag: str,
+    sampler_tag: str,
+    seed: int,
+    user_tag: str = "generation",
+    temperature: float = None,
+    top_p: float = None,
+    codebook_scale: float = None,
     save: bool = True,
 ):
     """
     Compute empirical token utilization + entropy stats on generated token sequences.
 
-    Same outputs as dataset stats, but tagged differently.
+    This is identical to evaluate_tokenized_dataset, but semantically used for
+    generated tokens.
     """
     return evaluate_tokenized_dataset(
         run_dir=run_dir,
         codes_dataset=generated_tokens,
         vocab_size=vocab_size,
-        tag=tag,
+        metric_tag=metric_tag,
+        sampler_tag=sampler_tag,
+        seed=seed,
+        user_tag=user_tag,
+        temperature=temperature,
+        top_p=top_p,
+        codebook_scale=codebook_scale,
         save=save,
     )
 
@@ -193,23 +376,40 @@ def evaluate_transformer_perplexity(
     codes_dataset: torch.Tensor,
     n_codes: int,
     start_token: int,
+    *,
+    metric_tag: str,
+    sampler_tag: str,
+    seed: int,
+    user_tag: str = "trainset",
+    temperature: float = None,
+    top_p: float = None,
+    codebook_scale: float = None,
     batch_size: int = 256,
     device=None,
-    tag: str = "transformer_eval",
     save: bool = True,
 ):
     """
     Evaluate transformer cross-entropy perplexity on a tokenized dataset.
 
-    Perplexity here is exp(average cross-entropy).
-    This is different from the *empirical* perplexity computed from token frequencies.
+    Perplexity here is exp(average cross-entropy), which differs from the
+    empirical perplexity computed from token frequencies.
 
     Saves:
-      - artifacts/transformer_ppl_<tag>.json
-      - figures/transformer_nll_hist_<tag>.png (optional histogram of per-batch losses)
+      - artifacts/transformer_ppl_<run_id>.json
+      - figures/transformer_nll_hist_<run_id>.png
     """
     if device is None:
         device = next(transformer.parameters()).device
+
+    run_id = _build_run_id(
+        metric_tag=metric_tag,
+        sampler_tag=sampler_tag,
+        seed=seed,
+        user_tag=user_tag,
+        temperature=temperature,
+        top_p=top_p,
+        codebook_scale=codebook_scale,
+    )
 
     transformer.eval()
 
@@ -221,7 +421,6 @@ def evaluate_transformer_perplexity(
     )
     targets = codes_dataset
     ds = TensorDataset(inputs, targets)
-
     loader = DataLoader(ds, batch_size=batch_size, shuffle=False, drop_last=False)
 
     criterion = nn.CrossEntropyLoss(reduction="mean")
@@ -235,7 +434,7 @@ def evaluate_transformer_perplexity(
         y = y.to(device)
 
         logits = transformer(x)  # (B, L, n_codes)
-        loss = criterion(logits.reshape(-1, n_codes), y.reshape(-1))  # mean over tokens
+        loss = criterion(logits.reshape(-1, n_codes), y.reshape(-1))
         losses.append(float(loss.item()))
 
         B = y.size(0)
@@ -246,6 +445,14 @@ def evaluate_transformer_perplexity(
     ppl = float(np.exp(avg_nll))
 
     out = {
+        "run_id": run_id,
+        "metric_tag": str(metric_tag),
+        "sampler_tag": str(sampler_tag),
+        "seed": int(seed),
+        "user_tag": str(user_tag),
+        "temperature": None if temperature is None else float(temperature),
+        "top_p": None if top_p is None else float(top_p),
+        "codebook_scale": None if codebook_scale is None else float(codebook_scale),
         "N_sequences": int(N),
         "seq_len": int(L),
         "n_codes": int(n_codes),
@@ -259,17 +466,19 @@ def evaluate_transformer_perplexity(
 
     if save:
         run_dir = Path(run_dir)
-        _save_json(run_dir / "artifacts" / f"transformer_ppl_{tag}.json", out)
+        _save_json(run_dir / "artifacts" / f"transformer_ppl_{run_id}.json", out)
 
-        # Histogram of batch losses (rough stability diagnostic)
+        # Histogram of batch losses (stability diagnostic)
         fig = plt.figure()
         plt.hist(losses, bins=30)
         plt.xlabel("batch cross-entropy")
         plt.ylabel("count")
+        plt.title("Transformer batch loss histogram")
         plt.tight_layout()
-        out_fig = run_dir / "figures" / f"transformer_nll_hist_{tag}.png"
+        out_fig = run_dir / "figures" / f"transformer_nll_hist_{run_id}.png"
         out_fig.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(out_fig, dpi=200)
         plt.close(fig)
 
     return out
+
