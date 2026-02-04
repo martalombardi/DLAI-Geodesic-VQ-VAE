@@ -1,0 +1,13 @@
+{
+  "metric_tag": "riemannian",
+  "tag": "riemannian_K128_refined_tp0p9_temp0p7_cs1p15",
+  "n_samples": 16,
+  "start_token": 128,
+  "grid_res": 7,
+  "seed": 123,
+  "temperature": 0.7,
+  "top_p": 0.9,
+  "codebook_scale": 1.15,
+  "png": "outputs/mnist/mnist_smoke_test/samples/samples_riemannian_riemannian_K128_refined_tp0p9_temp0p7_cs1p15_seed123_tp0p90_temp0p70_cs1p15.png",
+  "tokens_pt": "outputs/mnist/mnist_smoke_test/samples/tokens_riemannian_riemannian_K128_refined_tp0p9_temp0p7_cs1p15_seed123_tp0p90_temp0p70_cs1p15.pt"
+}
