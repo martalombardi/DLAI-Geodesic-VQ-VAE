@@ -134,7 +134,7 @@ def train_vqvae(cfg: dict, run_dir: Path) -> Tuple[torch.nn.Module, object]:
         ds_name, data_root=data_root, transform=transform
     )
 
-    batch_size = int(cfg["vae"].get("batch_size", 128))
+    batch_size = int(cfg["vq_vae"].get("batch_size", 128))
     num_workers = int(cfg.get("num_workers", 0))
     pin_memory = bool(cfg.get("pin_memory", False))
 
