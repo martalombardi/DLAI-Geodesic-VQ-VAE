@@ -4,3 +4,5 @@ deterministic_cpu: true
 num_workers: 2
 pin_memory: true
 outputs_root: outputs
+data_root: ./data
+
