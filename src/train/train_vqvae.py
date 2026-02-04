@@ -101,7 +101,7 @@ def train_vqvae(cfg: dict, run_dir: Path) -> Tuple[torch.nn.Module, object]:
 
     Configuration usage:
     - cfg["dataset"]: dataset parameters
-    - cfg["vae"]: architecture and training hyperparameters
+    - cfg["vq_vae"]: architecture and training hyperparameters
     - cfg["codebook"]["n_codes"]: codebook size
 
     Optional:
@@ -153,14 +153,16 @@ def train_vqvae(cfg: dict, run_dir: Path) -> Tuple[torch.nn.Module, object]:
     # -----------------------------------------------------------------
     # Model and optimizer
     # -----------------------------------------------------------------
-    vae_cfg = cfg["vae"]
+    vae_cfg = cfg["vq_vae"]
+
+    batch_size = int(vae_cfg.get("batch_size", 128))
 
     model = LatticeVQVAE(
         in_channels=in_channels,
         latent_dim=int(vae_cfg["latent_dim"]),
         n_codes=int(cfg["codebook"]["n_codes"]),
         base_channels=int(vae_cfg.get("base_channels", 32)),
-        beta_commit=float(cfg.get("vqvae_beta_commit", 0.25)),
+        beta_commit=float(vae_cfg.get("beta_commit", 0.25)),
     ).to(device)
 
     optimizer = torch.optim.Adam(
@@ -170,7 +172,7 @@ def train_vqvae(cfg: dict, run_dir: Path) -> Tuple[torch.nn.Module, object]:
 
     epochs = int(vae_cfg.get("epochs", 30))
     loss_reduction = str(vae_cfg.get("loss_reduction", "sum"))
-    vq_weight = float(cfg.get("vqvae_weight", 1.0))
+    vq_weight = float(vae_cfg.get("vq_weight", 1.0))
 
     # -----------------------------------------------------------------
     # Output paths
@@ -283,8 +285,8 @@ def train_vqvae(cfg: dict, run_dir: Path) -> Tuple[torch.nn.Module, object]:
         "device": str(device),
         "epochs": epochs,
         "n_codes": cfg["codebook"]["n_codes"],
-        "beta_commit": cfg.get("vqvae_beta_commit", 0.25),
-        "vq_weight": vq_weight,
+        "beta_commit": float(vae_cfg.get("beta_commit", 0.25)),
+        "vq_weight": float(vae_cfg.get("vq_weight", 1.0)),
         "final_loss": losses[-1],
         "final_recon": recon_losses[-1],
         "final_vq": vq_losses[-1],
