@@ -17,7 +17,7 @@ vq_vae:
   base_channels: 32
   lr: 1.0e-3
   batch_size: 128
-  epochs: 30
+  epochs: 20
   beta_commit: 1.0
   vq_weight: 1.0
   loss_reduction: sum
@@ -60,5 +60,6 @@ quantize:
 generate:
   n_samples: 16
   seed: 123
+
 
 
