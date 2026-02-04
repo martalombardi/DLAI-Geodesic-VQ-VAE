@@ -1,0 +1,8 @@
+{
+  "n_samples": 16,
+  "start_token": 128,
+  "grid_res": 7,
+  "seed": 123,
+  "png": "outputs/mnist/mnist_smoke_test_vqvae_b1_vw1/samples/samples_vqvae_bc1p00_vw1p00_K128_base_seed123.png",
+  "tokens_pt": "outputs/mnist/mnist_smoke_test_vqvae_b1_vw1/samples/tokens_vqvae_bc1p00_vw1p00_K128_base_seed123.pt"
+}

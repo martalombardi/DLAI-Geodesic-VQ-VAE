@@ -1,0 +1,14 @@
+{
+  "dataset": "mnist",
+  "seed": 123,
+  "device": "cuda",
+  "epochs": 20,
+  "n_codes": 128,
+  "beta_commit": 1.0,
+  "vq_weight": 1.0,
+  "final_loss": 7067.342842708334,
+  "final_recon": 78.33615384114583,
+  "final_vq": 894115.9936034115,
+  "final_perplexity": 6.804659428626998,
+  "elapsed_sec": 181.70234322547913
+}
