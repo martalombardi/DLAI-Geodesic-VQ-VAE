@@ -313,8 +313,19 @@ def generate_images_multinomial_refined(
     # 3.2 Save tokens
     torch.save({"tokens": tokens_cpu}, tok_path)
 
-    # 3.3 Save metadata JSON (for reproducibility)
+    # ---------------------------
+    # 3) Save artifacts (REFINED saving) - CONSISTENT WITH MAIN
+    # ---------------------------
+    png_path = samples_dir / f"samples_{tag}_seed{seed}.png"
+    tok_path = samples_dir / f"tokens_{tag}_seed{seed}.pt"
+    meta_path = samples_dir / f"meta_{tag}_seed{seed}.json"
+
+    save_generated_grid(imgs_cpu, png_path, nrow=int(np.sqrt(n_samples)))
+    torch.save({"tokens": tokens_cpu}, tok_path)
+
     meta = {
+        "metric_tag": str(metric_tag),
+        "tag": str(tag),
         "n_samples": int(n_samples),
         "start_token": int(start_token),
         "grid_res": int(grid_res),
@@ -329,6 +340,7 @@ def generate_images_multinomial_refined(
         json.dump(meta, f, indent=2)
 
     return imgs_cpu, tokens_cpu
+
 
 def save_generated_grid_refined(
     imgs: torch.Tensor,
@@ -406,3 +418,4 @@ def save_generated_grid_refined(
     plt.close(fig)
 
     return out_path
+
