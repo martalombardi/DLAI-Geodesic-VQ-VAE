@@ -1,0 +1,14 @@
+{
+  "dataset": "fashion_mnist",
+  "seed": 123,
+  "device": "cuda",
+  "epochs": 30,
+  "n_codes": 64,
+  "beta_commit": 1.0,
+  "vq_weight": 1.0,
+  "final_loss": 2487.9552979166665,
+  "final_recon": 232.08240979817708,
+  "final_vq": 288597.81093416846,
+  "final_perplexity": 5.677507549969118,
+  "elapsed_sec": 260.83991265296936
+}

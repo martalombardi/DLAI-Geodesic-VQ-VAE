@@ -49,7 +49,7 @@ transformer:
   n_layers: 4
   dropout: 0.2
   batch_size: 64
-  epochs: 40
+  epochs: 10
   lr: 5.0e-4
   weight_decay: 0.01
   grad_clip: 1.0

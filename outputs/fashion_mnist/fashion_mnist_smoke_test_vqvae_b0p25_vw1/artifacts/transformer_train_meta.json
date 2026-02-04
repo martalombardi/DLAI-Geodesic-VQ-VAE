@@ -1,0 +1,22 @@
+{
+  "dataset": "fashion_mnist",
+  "seed": 123,
+  "device": "cuda",
+  "epochs": 10,
+  "n_codes": 64,
+  "start_token": 64,
+  "grid_res": 7,
+  "d_model": 256,
+  "n_heads": 8,
+  "n_layers": 4,
+  "dropout": 0.2,
+  "lr": 0.0005,
+  "weight_decay": 0.01,
+  "grad_clip": 1.0,
+  "final_loss": 0.6215052738118527,
+  "final_ppl": 1.861728310585022,
+  "loss_curve": "outputs/fashion_mnist/fashion_mnist_smoke_test_vqvae_b0p25_vw1/figures/transformer_ppl_curve.png",
+  "checkpoint": "outputs/fashion_mnist/fashion_mnist_smoke_test_vqvae_b0p25_vw1/checkpoints/transformer_last.pt",
+  "codes_dataset": "outputs/fashion_mnist/fashion_mnist_smoke_test_vqvae_b0p25_vw1/artifacts/codes_dataset.pt",
+  "elapsed_sec": 215.15784740447998
+}

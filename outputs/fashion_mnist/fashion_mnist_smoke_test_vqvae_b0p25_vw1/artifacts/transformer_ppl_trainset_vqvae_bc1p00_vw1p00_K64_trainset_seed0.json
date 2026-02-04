@@ -1,0 +1,19 @@
+{
+  "run_id": "trainset_vqvae_bc1p00_vw1p00_K64_trainset_seed0",
+  "metric_tag": "vqvae_bc1p00_vw1p00_K64",
+  "sampler_tag": "trainset",
+  "seed": 0,
+  "user_tag": "trainset",
+  "temperature": null,
+  "top_p": null,
+  "codebook_scale": null,
+  "N_sequences": 60000,
+  "seq_len": 49,
+  "n_codes": 64,
+  "start_token": 64,
+  "batch_size": 256,
+  "avg_nll": 0.5870567510286967,
+  "perplexity": 1.7986866344080337,
+  "batch_loss_mean": 0.5870224544342528,
+  "batch_loss_std": 0.012337067221216906
+}
