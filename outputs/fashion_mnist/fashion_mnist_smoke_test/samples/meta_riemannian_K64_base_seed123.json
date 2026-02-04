@@ -1,0 +1,8 @@
+{
+  "n_samples": 16,
+  "start_token": 64,
+  "grid_res": 7,
+  "seed": 123,
+  "png": "outputs/fashion_mnist/fashion_mnist_smoke_test/samples/samples_riemannian_K64_base_seed123.png",
+  "tokens_pt": "outputs/fashion_mnist/fashion_mnist_smoke_test/samples/tokens_riemannian_K64_base_seed123.pt"
+}

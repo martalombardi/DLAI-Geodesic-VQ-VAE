@@ -1,0 +1,15 @@
+{
+  "dataset": "fashion_mnist",
+  "seed": 123,
+  "device": "cuda",
+  "epochs": 40,
+  "loss_reduction": "sum",
+  "beta_kl": 0.5,
+  "final_loss": 250.2218986328125,
+  "final_bce": 219.64711956380208,
+  "final_kl": 61.149557511393226,
+  "checkpoint": "outputs/fashion_mnist/fashion_mnist_smoke_test/checkpoints/vae_last.pt",
+  "recon_grid": "outputs/fashion_mnist/fashion_mnist_smoke_test/figures/vae_recon_grid.png",
+  "loss_curve": "outputs/fashion_mnist/fashion_mnist_smoke_test/figures/vae_loss_curve.png",
+  "elapsed_sec": 365.44373893737793
+}
