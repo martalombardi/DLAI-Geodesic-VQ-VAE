@@ -12,6 +12,16 @@ vae:
   beta_kl: 1.0
   loss_reduction: sum
 
+vq_vae:
+  latent_dim: 64
+  base_channels: 32
+  lr: 1.0e-3
+  batch_size: 128
+  epochs: 30
+  beta_commit: 1.0
+  vq_weight: 1.0
+  loss_reduction: sum
+
 geodesy:
   metric: riemannian   # or euclidean
   n_landmarks: 5000
@@ -50,4 +60,5 @@ quantize:
 generate:
   n_samples: 16
   seed: 123
+
 
