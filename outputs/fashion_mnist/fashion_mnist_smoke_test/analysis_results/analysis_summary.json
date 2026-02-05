@@ -1,0 +1,12 @@
+{
+    "model_type": "LatticeVAE",
+    "metrics": {
+        "mean_bce": 0.11612649261951447,
+        "fidelity_l2_mean": 3.6478335857391357
+    },
+    "riemannian_analysis": {
+        "optimal_neighbors": 8,
+        "optimal_clusters": 4,
+        "max_silhouette_score": 0.9427308185415574
+    }
+}
