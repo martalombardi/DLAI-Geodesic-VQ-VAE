@@ -39,4 +39,4 @@ The main logic is contained in `src/`:
 * **`utils/`**: Reproducibility utilities, logging helpers and shared functions.
 
 ### Notebooks
-* **`dlai_geodesic_vq_vae.ipynb`**: Main executable notebook (end-to-end, fully reproducible).
+* **`dlai_geodesic_vq_vae.ipynb`**: Main executable notebook (end-to-end, fully reproducible). You can view the static version at this [link](https://nbviewer.org/github/martalombardi/DLAI-Geodesic-VQ-VAE/blob/main/dlai_geodesic_vq_vae.ipynb).
