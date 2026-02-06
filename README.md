@@ -31,7 +31,7 @@ All experiment results are saved in `outputs/` (formerly `smoke_test`), organize
 ### Source Code Structure
 The main logic is contained in `src/`:
 
-* **`models/`**: Implementations of VAE, VQ-VA, and Transformer architectures.
+* **`models/`**: Implementations of VAE, VQ-VA and Transformer architectures.
 * **`geodesy/`**: Riemannian distance computation using Jacobian–vector products, graph construction and shortest-path algorithms.
 * **`tokenization/`**: Discretization pipelines for both Euclidean and Riemannian quantization.
 * **`train/`**: Training scripts for VAE, VQ-VAE and Transformer priors.
