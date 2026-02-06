@@ -13,7 +13,7 @@ To install the required dependencies:
 pip install -r requirements.txt
 ```
 
-The notebook `dlai_geodesic_vq_vae.ipynb` executes the full pipeline in a deterministic and reproducible way, including environment setup, data loading, model training, Riemannian discretization, evaluation, and generation.
+The notebook `dlai_geodesic_vq_vae.ipynb` executes the full pipeline in a deterministic and reproducible way, including environment setup, data loading, model training, Riemannian discretization, evaluation and generation.
 
 ## Project Structure
 ### Configuration
