@@ -105,7 +105,7 @@ def compute_edge_weights_riemannian_jvp(
 
     def decode_from_single_patch(z_patch, pos_flat, bg):
         B = z_patch.size(0)
-        # Background realistico basato sulla media dei landmark
+        
         grid = bg.view(1, latent_dim, 1, 1).expand(B, -1, grid_res, grid_res).clone()
         ii, jj = pos_flat // grid_res, pos_flat % grid_res
         grid[torch.arange(B), :, ii, jj] = z_patch
@@ -118,20 +118,20 @@ def compute_edge_weights_riemannian_jvp(
         p1, p2 = points[s], points[t]
         mid, tan = 0.5 * (p1 + p2), (p2 - p1)
         
-        # Distanza euclidea latente per la normalizzazione
+      
         dist_eucl = torch.linalg.norm(tan, dim=1)
 
-        # Scelta deterministica della posizione per garantire d(A,B) == d(B,A)
+       
         pos_batch = torch.from_numpy(np.minimum(positions[s], positions[t])).to(device)
 
-        # Calcolo JVP
+        
         _, jvp_out = jvp(lambda z: decode_from_single_patch(z, pos_batch, mean_latent), (mid,), (tan,))
         
-        # NORMA JVP (Pixel Space)
+      
         norm_pixel = torch.linalg.norm(jvp_out, dim=1)
         
-        # NORMALIZZAZIONE GEOMETRICA: Isola la variazione morfologica
-        # Questo riduce la "sfocatura" tipica delle zone con distanze latenti elevate
+        
+        
         w = (norm_pixel / (dist_eucl + 1e-8)).detach().cpu().numpy()
         
         weights[i:end] = w
@@ -139,58 +139,6 @@ def compute_edge_weights_riemannian_jvp(
     weights = np.maximum(weights, eps_weight)
     return csr_matrix((weights, (sources, targets)), shape=adjacency.shape)
 
-'''
-def compute_edge_weights_euclidean(landmarks: np.ndarray, adjacency, eps_weight: float = 1e-5):
-    """
-    Edge weights = Euclidean distance in latent space.
-    Returns a weighted sparse matrix with same sparsity as adjacency.
-    """
-    sources, targets = adjacency.nonzero()
-    diffs = landmarks[sources] - landmarks[targets]
-    w = np.linalg.norm(diffs, axis=1).astype(np.float32)
-    w = np.maximum(w, eps_weight)
-    return csr_matrix((w, (sources, targets)), shape=adjacency.shape)
-
-def compute_edge_weights_riemannian_jvp(
-    vae_model, landmarks, positions, adjacency, device,
-    latent_dim, grid_res, batch_edges=64, eps_weight=1e-5,
-):
-    vae_model.eval()
-    sources, targets = adjacency.nonzero()
-    points = torch.from_numpy(landmarks).float().to(device)
-    pos_idx = torch.from_numpy(positions).long().to(device)
-
-    # MODIFICA 1: Calcola la media per un background realistico
-    mean_latent = points.mean(dim=0) 
-
-    weights = np.zeros(len(sources), dtype=np.float32)
-
-    # MODIFICA 2: La funzione di decode ora accetta mean_latent
-    def decode_from_single_patch(z_patch, pos_flat, bg):
-        B = z_patch.size(0)
-        # Inizializza con la media invece che con zeri
-        grid = bg.view(1, latent_dim, 1, 1).expand(B, -1, grid_res, grid_res).clone()
-        ii, jj = pos_flat // grid_res, pos_flat % grid_res
-        grid[torch.arange(B), :, ii, jj] = z_patch
-        return vae_model.decoder(grid).reshape(B, -1)
-
-    for i in range(0, len(sources), batch_edges):
-        end = min(i + batch_edges, len(sources))
-        s, t = sources[i:end], targets[i:end]
-
-        p1, p2 = points[s], points[t]
-        mid, tan = 0.5 * (p1 + p2), (p2 - p1)
-
-        # MODIFICA 3: Scelta deterministica della posizione per simmetria
-        pos_batch = torch.from_numpy(np.minimum(positions[s], positions[t])).to(device)
-
-        # JVP con background e posizione coerente
-        _, jvp_out = jvp(lambda z: decode_from_single_patch(z, pos_batch, mean_latent), (mid,), (tan,))
-        weights[i:end] = torch.linalg.norm(jvp_out, dim=1).detach().cpu().numpy()
-
-    weights = np.maximum(weights, eps_weight)
-    return csr_matrix((weights, (sources, targets)), shape=adjacency.shape)
-'''
 
 # ============================================================
 # 4) Shortest path distances + KMedoids codebook
@@ -278,12 +226,7 @@ def build_codebook_and_bridges(
         adj = symmetrize_adjacency(adj)
 
     n_components, labels = connected_components(adj, directed=False)
-    print(f"Il grafo ha {n_components} componenti connesse.")
-
-    if n_components > 1:
-      print("Consiglio: Aumenta knn_k per connettere il grafo ed evitare distanze infinite.")
-    else:
-      print("Il grafo è perfettamente connesso. Ottimo per Dijkstra!")
+    
     metric = metric.lower()
     
     if metric == "euclidean":
@@ -317,3 +260,4 @@ def build_codebook_and_bridges(
         "medoid_indices": medoid_indices,
         "bridge_to_medoids": bridge,  # (N_landmarks, n_codes)
     }
+
