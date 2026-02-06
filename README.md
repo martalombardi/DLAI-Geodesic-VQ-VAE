@@ -40,3 +40,6 @@ The main logic is contained in `src/`:
 
 ### Notebooks
 * **`dlai_geodesic_vq_vae.ipynb`**: Main executable notebook (end-to-end, fully reproducible). You can view the static version at this [link](https://nbviewer.org/github/martalombardi/DLAI-Geodesic-VQ-VAE/blob/main/dlai_geodesic_vq_vae.ipynb).
+
+## Development Note
+The entire project was developed and executed on **Google Colab**. The notebook is optimized for Colab environments to ensure that the heavy computations required for Jacobian–vector products and shortest-path algorithms are handled efficiently.
